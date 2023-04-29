@@ -7,7 +7,7 @@
 #include "debug.h"
 #include "vm.h"
 
-void repl(VM *vm) {
+void repl(void) {
   char line[1024];
   while (true) {
     printf("> ");
@@ -17,7 +17,7 @@ void repl(VM *vm) {
       break;
     }
 
-    interpret(vm, line);
+    interpret(line);
   }
 }
 
@@ -50,9 +50,9 @@ static char *readFile(const char *path) {
   return buffer;
 }
 
-void runFile(VM *vm, const char *path) {
+void runFile(const char *path) {
   char *source = readFile(path);
-  InterpretResult result = interpret(vm, source);
+  InterpretResult result = interpret(source);
   free(source);
 
   if (result == INTERPRET_COMPILE_ERROR)
@@ -62,18 +62,17 @@ void runFile(VM *vm, const char *path) {
 }
 
 int main(int argc, const char *argv[]) {
-  VM vm;
-  initVM(&vm);
+  initVM();
 
   if (argc == 1) {
-    repl(&vm);
+    repl();
   } else if (argc == 2) {
-    runFile(&vm, argv[1]);
+    runFile(argv[1]);
   } else {
     fprintf(stderr, "usage: clox [path]\n");
     exit(64);
   }
 
-  freeVM(&vm);
+  freeVM();
   return 0;
 }
