@@ -19,18 +19,20 @@ static Obj *allocateObject(size_t size, ObjType type) {
   return object;
 }
 
-static ObjString *allocateString(char *chars, int length) {
-  ObjString *string = ALLOCATE_OBJ(ObjString, OBJ_STRING);
+static ObjString *allocateString(const char *chars, int length) {
+  // We need to allocate enough memory for our variable length array here.
+  ObjString *string = (ObjString *)allocateObject(
+      sizeof(ObjString) + 1 + sizeof(char) * length, OBJ_STRING);
+
+  memcpy(string->chars, chars, length);
+  string->chars[length] = '\0';
   string->length = length;
-  string->chars = chars;
+
   return string;
 }
 
 ObjString *copyString(const char *chars, int length) {
-  char *heapChars = ALLOCATE(char, length + 1);
-  memcpy(heapChars, chars, length);
-  heapChars[length] = '\0';
-  return allocateString(heapChars, length);
+  return allocateString(chars, length);
 }
 
 ObjString *takeString(char *chars, int length) {
