@@ -14,4 +14,7 @@ $(TARGET): $(OBJS)
 clean:
 	$(RM) $(TARGET) $(OBJS) $(DEPS)
 
+tags: $(wildcard *.c) $(wildcard *.h)
+	ctags $^
+
 -include $(DEPS)
