@@ -3,6 +3,7 @@
 
 #include "memory.h"
 #include "object.h"
+#include "table.h"
 #include "value.h"
 #include "vm.h"
 
@@ -19,7 +20,7 @@ static Obj *allocateObject(size_t size, ObjType type) {
   return object;
 }
 
-static ObjString *allocateString(const char *chars, int length) {
+static ObjString *allocateString(const char *chars, int length, uint32_t hash) {
   // We need to allocate enough memory for our variable length array here.
   ObjString *string = (ObjString *)allocateObject(
       sizeof(ObjString) + 1 + sizeof(char) * length, OBJ_STRING);
@@ -27,16 +28,41 @@ static ObjString *allocateString(const char *chars, int length) {
   memcpy(string->chars, chars, length);
   string->chars[length] = '\0';
   string->length = length;
+  string->hash = hash;
 
+  tableSet(&vm.strings, string, NIL_VAL);
   return string;
 }
 
+uint32_t hashString(const char *key, int length) {
+  uint32_t hash = 2166136261u;
+  for (int i = 0; i < length; i++) {
+    hash ^= (uint8_t)key[i];
+    hash *= 16777619;
+  }
+  return hash;
+}
+
 ObjString *copyString(const char *chars, int length) {
-  return allocateString(chars, length);
+  uint32_t hash = hashString(chars, length);
+
+  ObjString *interned = tableFindString(&vm.strings, chars, length, hash);
+  if (interned != NULL)
+    return interned;
+
+  return allocateString(chars, length, hash);
 }
 
 ObjString *takeString(char *chars, int length) {
-  return allocateString(chars, length);
+  uint32_t hash = hashString(chars, length);
+
+  ObjString *interned = tableFindString(&vm.strings, chars, length, hash);
+  if (interned != NULL) {
+    FREE_ARRAY(char, chars, length + 1);
+    return interned;
+  }
+
+  return allocateString(chars, length, hash);
 }
 
 void printObject(Value value) {
