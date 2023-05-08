@@ -20,6 +20,14 @@ static Obj *allocateObject(size_t size, ObjType type) {
   return object;
 }
 
+ObjFunction *newFunction(void) {
+  ObjFunction *function = ALLOCATE_OBJ(ObjFunction, OBJ_FUNCTION);
+  function->arity = 0;
+  function->name = NULL;
+  initChunk(&function->chunk);
+  return function;
+}
+
 static ObjString *allocateString(const char *chars, int length, uint32_t hash) {
   // We need to allocate enough memory for our variable length array here.
   ObjString *string = (ObjString *)allocateObject(
@@ -65,8 +73,20 @@ ObjString *takeString(char *chars, int length) {
   return allocateString(chars, length, hash);
 }
 
+static void printFunction(ObjFunction *function) {
+  if (function->name == NULL) {
+    printf("<script>");
+    return;
+  }
+
+  printf("<fn %s>", function->name->chars);
+}
+
 void printObject(Value value) {
   switch (OBJ_TYPE(value)) {
+  case OBJ_FUNCTION:
+    printFunction(AS_FUNCTION(value));
+    break;
   case OBJ_STRING:
     printf("%s", AS_CSTRING(value));
     break;

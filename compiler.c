@@ -46,7 +46,12 @@ typedef struct {
   int depth;
 } Local;
 
+typedef enum { TYPE_FUNCTION, TYPE_SCRIPT } FunctionType;
+
 typedef struct {
+  ObjFunction *function;
+  FunctionType type;
+
   Local locals[UINT8_COUNT];
   int localCount;
   int scopeDepth;
@@ -54,7 +59,6 @@ typedef struct {
 
 Parser parser;
 Compiler *current = NULL;
-Chunk *compilingChunk;
 
 static void errorAt(Token *token, const char *message) {
   if (parser.panicMode)
@@ -116,7 +120,7 @@ static bool match(TokenType type) {
   return true;
 }
 
-static Chunk *currentChunk(void) { return compilingChunk; }
+static Chunk *currentChunk(void) { return &current->function->chunk; }
 
 static uint8_t makeConstant(Value value) {
   int constant = addConstant(currentChunk(), value);
@@ -231,19 +235,31 @@ static void patchJump(int offset) {
 
 static void emitReturn(void) { emitByte(OP_RETURN); }
 
-static void initCompiler(Compiler *compiler) {
+static void initCompiler(Compiler *compiler, FunctionType type) {
   compiler->localCount = 0;
   compiler->scopeDepth = 0;
+  compiler->function = newFunction();
   current = compiler;
+
+  Local *local = &current->locals[current->localCount++];
+  local->depth = 0;
+  local->name.start = "";
+  local->name.length = 0;
 }
 
-static void endCompiler(void) {
+static ObjFunction *endCompiler(void) {
   emitReturn();
+  ObjFunction *function = current->function;
+
 #ifdef DEBUG_PRINT_CODE
   if (!parser.hadError) {
-    disassembleChunk(currentChunk(), "code");
+    disassembleChunk(currentChunk(), function->name != NULL
+                                         ? function->name->chars
+                                         : "<script>");
   }
 #endif
+
+  return function;
 }
 
 static void beginScope(void) { current->scopeDepth++; }
@@ -662,11 +678,10 @@ static void statement(void) {
   }
 }
 
-bool compile(const char *source, Chunk *chunk) {
+ObjFunction *compile(const char *source) {
   initScanner(source);
   Compiler compiler;
-  initCompiler(&compiler);
-  compilingChunk = chunk;
+  initCompiler(&compiler, TYPE_SCRIPT);
 
   parser.hadError = false;
   parser.panicMode = false;
@@ -677,8 +692,8 @@ bool compile(const char *source, Chunk *chunk) {
     declaration(false);
   }
 
-  endCompiler();
-  return !parser.hadError;
+  ObjFunction *func = endCompiler();
+  return parser.hadError ? NULL : func;
 }
 
 #undef UNINITIALIZED_VAR_DEPTH
